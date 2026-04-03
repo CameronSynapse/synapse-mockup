@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synapse Prescribe AI - Interactive Concept</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-spin { animation: spin 1s linear infinite; }
+    .animate-slideIn { animation: slideIn 0.2s ease-out; }
+    .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+    .animate-zoomIn { animation: zoomIn 0.2s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState } = React;
+    
+    // Icon components using Lucide
+    const Icon = ({ name, size = 16, className = "" }) => {
+      const ref = React.useRef(null);
+      React.useEffect(() => {
+        if (ref.current && lucide[name]) {
+          ref.current.innerHTML = '';
+          const svg = lucide.createElement(lucide[name]);
+          svg.setAttribute('width', size);
+          svg.setAttribute('height', size);
+          svg.setAttribute('class', className);
+          ref.current.appendChild(svg);
+        }
+      }, [name, size, className]);
+      return <span ref={ref} className={`inline-flex items-center justify-center ${className}`} />;
+    };
+
+    // AI Badge Component
+    const AIBadge = ({ small = false }) => (
+      <span className={`inline-flex items-center gap-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white font-bold rounded-full flex-shrink-0 ${small ? 'text-[9px] px-1.5 py-0.5' : 'text-[9px] px-2 py-0.5'}`}>
+        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+        AI
+      </span>
+    );
+
+    // Checkbox Item Component
+    const ChecklistItem = ({ checked, label, hasAI = false, onClick }) => (
+      <div 
+        className={`flex items-center gap-2.5 py-2 ${onClick ? 'cursor-pointer hover:bg-slate-50 rounded-lg px-1 -mx-1' : 'cursor-default'}`}
+        onClick={onClick}
+      >
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${checked ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-transparent'}`}>
+          {checked && <Icon name="Check" size={11} className="text-white" />}
+        </div>
+        <span className="text-[13px] text-slate-700 flex-1">{label}</span>
+        {hasAI && <AIBadge small />}
+      </div>
+    );
+
+    // Alert Item Component
+    const AlertItem = ({ type, message, showAI = true }) => {
+      const styles = {
+        warning: { bg: 'bg-amber-50', border: 'border-amber-600/20', iconName: 'AlertTriangle', iconColor: 'text-amber-600' },
+        info: { bg: 'bg-blue-50', border: 'border-blue-500/20', iconName: 'AlertTriangle', iconColor: 'text-blue-500' },
+        success: { bg: 'bg-green-50', border: 'border-green-600/20', iconName: 'CheckCircle2', iconColor: 'text-green-600' },
+      };
+      const { bg, border, iconName, iconColor } = styles[type] || styles.info;
+      
+      return (
+        <div className={`flex items-start gap-2 p-3 rounded-lg ${bg} border ${border}`}>
+          <Icon name={iconName} size={14} className={`${iconColor} flex-shrink-0 mt-0.5`} />
+          <span className="text-xs text-slate-700 leading-relaxed flex-1">{message}</span>
+          {showAI && <AIBadge small />}
+        </div>
+      );
+    };
+
+    // Prescription Card Component
+    const PrescriptionCard = ({ drug, sig, quantity, days, refills, schedule, isAIGenerated, rationale, onRemove }) => {
+      const [expanded, setExpanded] = useState(false);
+      
+      return (
+        <div className={`bg-white border rounded-xl overflow-hidden ${isAIGenerated ? 'border-purple-200 ring-1 ring-purple-100' : 'border-slate-200'}`}>
+          <div 
+            className="flex items-center p-3 cursor-pointer gap-2.5 hover:bg-slate-50 transition-colors"
+            onClick={() => setExpanded(!expanded)}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-sm font-semibold text-slate-800">{drug}</span>
+                {schedule && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-300 tracking-wide">
+                    SCHEDULE {schedule}
+                  </span>
+                )}
+                {isAIGenerated && <AIBadge small />}
+              </div>
+              <div className="text-xs text-slate-500 truncate">
+                {sig} &nbsp;|&nbsp; {quantity} &nbsp;|&nbsp; {days} days &nbsp;|&nbsp; {refills} refills
+              </div>
+            </div>
+            <Icon name={expanded ? "ChevronUp" : "ChevronDown"} size={16} className="text-slate-400" />
+          </div>
+          
+          {expanded && (
+            <div className="px-3 pb-3 border-t border-slate-100 pt-3 space-y-2 animate-slideIn">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-slate-400">Sig:</span> <span className="text-slate-600">{sig}</span></div>
+                <div><span className="text-slate-400">Quantity:</span> <span className="text-slate-600">{quantity}</span></div>
+                <div><span className="text-slate-400">Days Supply:</span> <span className="text-slate-600">{days}</span></div>
+                <div><span className="text-slate-400">Refills:</span> <span className="text-slate-600">{refills}</span></div>
+              </div>
+              {rationale && (
+                <div className="flex items-start gap-2 p-2 bg-purple-50 rounded-lg border border-purple-100 mt-2">
+                  <Icon name="BookOpen" size={12} className="text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-[11px] text-purple-700">
+                    <span className="font-semibold">AI Rationale:</span> {rationale}
+                  </div>
+                </div>
+              )}
+              {onRemove && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium mt-2"
+                >
+                  Remove from prescription
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Main App Component
+    function SynapsePrescribeAI() {
+      // State
+      const [showAIPanel, setShowAIPanel] = useState(false);
+      const [selectedConditions, setSelectedConditions] = useState(['F41.1']);
+      const [isGenerating, setIsGenerating] = useState(false);
+      const [prescriptions, setPrescriptions] = useState([
+        { id: 1, drug: 'Zoloft 25 MG Tablet', sig: 'Once Daily In The Morning', quantity: '30 tablets', days: 30, refills: 2 },
+        { id: 2, drug: 'Lorazepam 0.5 MG Oral Tablet', sig: 'Take by mouth 1 time daily as needed', quantity: '10 tablets', days: 10, refills: 0, schedule: 'IV' },
+      ]);
+      const [aiPrescriptions, setAIPrescriptions] = useState([]);
+      const [twoFACode, setTwoFACode] = useState('');
+      const [pdmpChecked, setPdmpChecked] = useState(false);
+      const [selectedInsurance, setSelectedInsurance] = useState('B776-NM-19');
+      const [showPDMPModal, setShowPDMPModal] = useState(false);
+
+      // Conditions for AI generation
+      const conditions = [
+        { code: 'F41.1', name: 'Generalized Anxiety Disorder' },
+        { code: 'F32.1', name: 'Major Depressive Disorder, moderate' },
+        { code: 'F41.0', name: 'Panic Disorder' },
+        { code: 'F43.10', name: 'Post-Traumatic Stress Disorder' },
+        { code: 'F90.0', name: 'ADHD, predominantly inattentive' },
+      ];
+
+      // Generate AI prescriptions
+      const generateAIPrescriptions = () => {
+        setIsGenerating(true);
+        setShowAIPanel(false);
+        
+        setTimeout(() => {
+          const newRx = [
+            {
+              id: 100,
+              drug: 'Sertraline 50 MG Tablet',
+              sig: 'Take 1 tablet by mouth once daily',
+              quantity: '30 tablets',
+              days: 30,
+              refills: 2,
+              isAIGenerated: true,
+              rationale: 'First-line SSRI for GAD per APA 2023 guidelines. Starting dose with titration plan.'
+            },
+            {
+              id: 101,
+              drug: 'Buspirone 5 MG Tablet',
+              sig: 'Take 1 tablet by mouth twice daily',
+              quantity: '60 tablets',
+              days: 30,
+              refills: 2,
+              isAIGenerated: true,
+              rationale: 'Adjunct anxiolytic without benzodiazepine risks. APA-recommended for GAD.'
+            }
+          ];
+          setAIPrescriptions(newRx);
+          setIsGenerating(false);
+        }, 1500);
+      };
+
+      // Add AI prescription to main list
+      const addAIPrescription = (rx) => {
+        setPrescriptions([...prescriptions, { ...rx, id: Date.now() }]);
+        setAIPrescriptions(aiPrescriptions.filter(p => p.id !== rx.id));
+      };
+
+      // Remove prescription
+      const removePrescription = (id) => {
+        setPrescriptions(prescriptions.filter(p => p.id !== id));
+      };
+
+      // Check if form is complete
+      const isComplete = prescriptions.length > 0 && pdmpChecked && twoFACode.length >= 6;
+      const hasControlled = prescriptions.some(p => p.schedule);
+
+      return (
+        <div className="min-h-screen bg-white text-slate-800 flex flex-col">
+          {/* Header */}
+          <div className="h-[52px] flex items-center px-6 border-b border-slate-200 bg-white flex-shrink-0">
+            <button className="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-700 transition-colors">
+              <Icon name="ArrowLeft" size={14} /> Go back to patient file
+            </button>
+            <div className="flex-1 text-center font-semibold text-base text-slate-800 flex items-center justify-center gap-2">
+              <Icon name="FileText" size={15} className="text-teal-500" /> New Prescription
+            </div>
+            <div className="w-[180px]" />
+          </div>
+
+          {/* Main Grid */}
+          <div className="grid grid-cols-[220px_1fr_232px] flex-1 overflow-hidden">
+            {/* Left Sidebar - Patient Info */}
+            <div className="border-r border-slate-200 overflow-y-auto p-4 flex flex-col gap-5">
+              {/* Patient Section */}
+              <div>
+                <div className="text-[10px] font-bold text-teal-500 uppercase tracking-wider mb-1.5">Patient</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center">
+                    <Icon name="User" size={16} className="text-teal-500" />
+                  </div>
+                  <span className="font-bold text-[15px]">Matthew Connors</span>
+                </div>
+                <div className="space-y-0">
+                  {[
+                    ['Date of birth', '1981-06-21 (44 yo)'],
+                    ['Sex', 'Male'],
+                    ['Height', '5 ft 6 in'],
+                    ['Weight', '160lb'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between text-xs py-1 border-b border-slate-100">
+                      <span className="text-slate-400">{label}</span>
+                      <span className="text-slate-600 font-medium">{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2">
+                  <div className="text-xs text-slate-400 mb-1.5">Allergies</div>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[11px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-medium border border-red-600/15">Acetaminophen</span>
+                    <span className="text-[11px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-medium border border-red-600/15">Trimethoprim-Sulfa</span>
+                    <span className="text-[11px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-medium">+1</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Insurance */}
+              <div>
+                <div className="text-[13px] font-semibold text-slate-600 mb-2">Insurance coverage</div>
+                <div className="relative">
+                  <select 
+                    value={selectedInsurance}
+                    onChange={(e) => setSelectedInsurance(e.target.value)}
+                    className="w-full p-2 pr-8 rounded-md border border-slate-300 text-xs text-slate-600 bg-white appearance-none cursor-pointer"
+                  >
+                    <option value="">Select a coverage</option>
+                    <option value="B776-NM-19">B776-NM-19</option>
+                    <option value="Aetna PPO">Aetna PPO</option>
+                    <option value="Blue Shield HMO">Blue Shield HMO</option>
+                    <option value="Medicare Part D">Medicare Part D</option>
+                  </select>
+                  <Icon name="ChevronDown" size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+                {selectedInsurance && (
+                  <div className="flex items-start gap-1.5 mt-2 bg-blue-50 border border-blue-500/20 rounded-md p-2">
+                    <Icon name="Info" size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-[11px] text-blue-500">Coverage applies to all drugs in this prescription.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Pharmacy */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-bold text-teal-500 uppercase tracking-wider">Pharmacy</div>
+                  <Icon name="Link2" size={14} className="text-slate-400 cursor-pointer hover:text-teal-500" />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center">
+                    <Icon name="Building2" size={16} className="text-teal-500" />
+                  </div>
+                  <span className="font-bold text-sm">CVS Pharmacy</span>
+                </div>
+                <div className="text-xs text-slate-600 mb-1">8956 Foothill Blvd<br/>Rancho Cucamonga CA 91730</div>
+                <div className="text-xs text-slate-500">(213) 555-0503</div>
+                <div className="flex justify-between text-xs items-center mt-2">
+                  <span className="text-slate-400">Pharmacy type</span>
+                  <span className="bg-blue-50 text-blue-500 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">In House</span>
+                </div>
+              </div>
+
+              {/* Prescriber */}
+              <div>
+                <div className="text-[10px] font-bold text-teal-500 uppercase tracking-wider mb-1.5">Prescriber</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center">
+                    <Icon name="Stethoscope" size={15} className="text-teal-500" />
+                  </div>
+                  <span className="font-bold text-sm">Dr. Anna Smith</span>
+                </div>
+                <div className="text-xs text-slate-600">Name Of Practice Location</div>
+                <div className="text-xs text-slate-500 mt-1">8956 Foothill Blvd<br/>Rancho Cucamonga</div>
+              </div>
+            </div>
+
+            {/* Center - Prescriptions */}
+            <div className="overflow-y-auto p-5 flex flex-col gap-4 bg-slate-50/50">
+              {/* Header with Generate AI Button */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-800">Prescriptions</h3>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowAIPanel(!showAIPanel)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/20 bg-gradient-to-r from-purple-500/5 to-pink-500/5 text-purple-500 text-xs font-bold hover:from-purple-500/10 hover:to-pink-500/10 transition-all"
+                  >
+                    <Icon name="Sparkles" size={13} />
+                    Generate with AI
+                    <Icon name="ChevronDown" size={12} className={`transition-transform ${showAIPanel ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* AI Generation Panel */}
+                  {showAIPanel && (
+                    <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-slideIn">
+                      <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-purple-50 to-pink-50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon name="Sparkles" size={16} className="text-purple-500" />
+                          <span className="font-semibold text-slate-800">Generate Prescription</span>
+                        </div>
+                        <p className="text-xs text-slate-500">Select diagnosis to generate evidence-based treatment</p>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+                        {conditions.map(c => (
+                          <label key={c.code} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input 
+                              type="checkbox"
+                              checked={selectedConditions.includes(c.code)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedConditions([...selectedConditions, c.code]);
+                                } else {
+                                  setSelectedConditions(selectedConditions.filter(x => x !== c.code));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-purple-500 focus:ring-purple-500"
+                            />
+                            <div>
+                              <div className="text-xs font-medium text-slate-700">{c.code}</div>
+                              <div className="text-[11px] text-slate-500">{c.name}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="p-4 border-t border-slate-100 bg-slate-50">
+                        <button 
+                          onClick={generateAIPrescriptions}
+                          disabled={selectedConditions.length === 0}
+                          className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <Icon name="Sparkles" size={14} />
+                          Generate Treatment Plan
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="Search treatment"
+                  className="w-full py-2.5 pl-9 pr-3 rounded-lg border border-slate-300 text-[13px] text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                />
+              </div>
+
+              {/* AI Generating Indicator */}
+              {isGenerating && (
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 animate-pulse">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Icon name="Sparkles" size={16} className="text-white animate-spin" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-purple-700">Generating treatment plan...</div>
+                    <div className="text-xs text-purple-500">Analyzing patient profile and clinical guidelines</div>
+                  </div>
+                </div>
+              )}
+
+              {/* AI-Generated Prescriptions */}
+              {aiPrescriptions.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-purple-600">
+                    <Icon name="Sparkles" size={14} />
+                    AI-Generated Recommendations
+                  </div>
+                  {aiPrescriptions.map(rx => (
+                    <div key={rx.id} className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-3 border border-purple-200">
+                      <PrescriptionCard {...rx} />
+                      <div className="flex gap-2 mt-2 pt-2 border-t border-purple-200">
+                        <button 
+                          onClick={() => addAIPrescription(rx)}
+                          className="flex-1 py-1.5 px-3 rounded-lg bg-purple-500 text-white text-xs font-semibold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Icon name="Check" size={12} /> Accept
+                        </button>
+                        <button 
+                          onClick={() => setAIPrescriptions(aiPrescriptions.filter(p => p.id !== rx.id))}
+                          className="py-1.5 px-3 rounded-lg border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Current Prescriptions */}
+              <div className="space-y-2">
+                {prescriptions.map(rx => (
+                  <PrescriptionCard 
+                    key={rx.id} 
+                    {...rx} 
+                    onRemove={() => removePrescription(rx.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Summary of Alerts */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div className="flex items-center justify-between p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-800">Summary of alerts</span>
+                    <Icon name="Info" size={14} className="text-slate-400" />
+                    <AIBadge />
+                  </div>
+                  <button className="flex items-center gap-1 text-[11px] font-semibold text-teal-500 hover:text-teal-600">
+                    <Icon name="Maximize2" size={13} /> OPEN ANALYSIS
+                  </button>
+                </div>
+                <div className="px-3 pb-3 space-y-2">
+                  {prescriptions.some(p => p.drug.includes('Zoloft') || p.drug.includes('Sertraline')) && 
+                   prescriptions.some(p => p.drug.includes('Lorazepam')) && (
+                    <AlertItem 
+                      type="warning" 
+                      message="Zoloft + Lorazepam: CNS depression risk. Co-prescribing SSRIs with benzodiazepines increases sedation and respiratory risk."
+                    />
+                  )}
+                  {hasControlled && (
+                    <AlertItem 
+                      type="info" 
+                      message={`Controlled substance detected: PDMP check ${pdmpChecked ? 'completed' : 'required'}. ${pdmpChecked ? 'No prior controlled substance history detected.' : 'Click to review PDMP report.'}`}
+                    />
+                  )}
+                  <AlertItem 
+                    type="success" 
+                    message="No allergy conflicts detected across all selected drugs. Trimethoprim-Sulfa allergy verified — all selections are clear."
+                  />
+                  {selectedInsurance && (
+                    <AlertItem 
+                      type="success" 
+                      message={`All drugs covered under ${selectedInsurance}. No prior authorization required.`}
+                      showAI={false}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar - Final Review */}
+            <div className="border-l border-slate-200 overflow-y-auto p-4 flex flex-col gap-4 bg-white">
+              {/* Final Review Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 relative overflow-hidden">
+                <div className="absolute -top-3 -right-3 w-16 h-16 rounded-full bg-blue-500/10" />
+                <div className="absolute top-2 right-6 w-7 h-7 rounded-full bg-purple-500/10" />
+                <div className="text-[15px] font-bold text-slate-800 mb-1 relative">Final Review</div>
+                <div className="text-[11px] text-slate-500 relative">Mandatory information to validate prescription</div>
+              </div>
+
+              {/* Checklist */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[13px] font-semibold text-slate-800">Needed for submission</div>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isComplete ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {isComplete ? 'Complete' : 'Incomplete'}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <ChecklistItem checked={true} label="Select a pharmacy" />
+                  <ChecklistItem checked={prescriptions.length > 0} label="Add treatments" />
+                  <ChecklistItem 
+                    checked={pdmpChecked} 
+                    label={<span>Check the <span className="text-teal-500 underline decoration-dotted cursor-pointer">PDMP report</span></span>}
+                    hasAI={hasControlled}
+                    onClick={() => setShowPDMPModal(true)}
+                  />
+                  <ChecklistItem checked={twoFACode.length >= 6} label="Insert your 2FA code" />
+                </div>
+              </div>
+
+              {/* 2FA */}
+              <div>
+                <div className="text-[13px] font-semibold text-slate-800 mb-2">Two-Factor-Authentication</div>
+                <input 
+                  type="text"
+                  placeholder="Insert your 2FA code here"
+                  value={twoFACode}
+                  onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full py-2.5 px-3 rounded-lg border border-slate-300 text-[13px] text-slate-600 bg-white tracking-[3px] focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                />
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <Icon name="Info" size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-blue-500 leading-relaxed">
+                      By completing the two-factor authentication protocol, you are legally signing the prescription(s) and authorizing transmission to the pharmacy.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notifications */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-[13px] font-semibold text-slate-800">Notifications</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Optional</span>
+                </div>
+                {['Receive notifications regarding this prescription', 'Send Prescription Details to Patient Email'].map(label => (
+                  <label key={label} className="flex items-start gap-2 mb-2 cursor-pointer">
+                    <div className="w-4 h-4 border-2 border-slate-300 rounded bg-transparent flex-shrink-0 mt-0.5 hover:border-purple-400 transition-colors" />
+                    <span className="text-xs text-slate-600">{label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Submit Button */}
+              <button 
+                disabled={!isComplete}
+                className={`w-full py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  isComplete 
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-600 hover:to-teal-700 shadow-lg shadow-teal-500/25' 
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                Submit Prescription <Icon name="ArrowRight" size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* PDMP Modal */}
+          {showPDMPModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+              <div className="bg-white rounded-2xl w-[500px] max-h-[80vh] overflow-hidden shadow-2xl animate-zoomIn">
+                <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="Shield" size={20} className="text-blue-500" />
+                    <span className="font-bold text-slate-800">PDMP Report</span>
+                    <AIBadge />
+                  </div>
+                  <button onClick={() => setShowPDMPModal(false)} className="p-1 hover:bg-slate-200 rounded-lg transition-colors">
+                    <Icon name="X" size={18} className="text-slate-500" />
+                  </button>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                    <Icon name="CheckCircle2" size={24} className="text-green-500" />
+                    <div>
+                      <div className="font-semibold text-green-700">Low Risk</div>
+                      <div className="text-xs text-green-600">No concerning patterns detected</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-slate-700">AI Summary</h4>
+                    <div className="text-xs text-slate-600 leading-relaxed p-3 bg-slate-50 rounded-lg">
+                      Patient has no prior controlled substance prescriptions in the past 12 months. 
+                      No multiple provider episodes detected. No overlapping opioid/benzodiazepine prescriptions. 
+                      Recommended to proceed with current prescription.
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-slate-700">Prescription History (12 months)</h4>
+                    <div className="text-xs text-slate-500 p-3 bg-slate-50 rounded-lg text-center">
+                      No controlled substance prescriptions found
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Icon name="Clock" size={12} />
+                    Last updated: Today at {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+                <div className="p-4 border-t border-slate-200 bg-slate-50">
+                  <button 
+                    onClick={() => { setPdmpChecked(true); setShowPDMPModal(false); }}
+                    className="w-full py-2.5 rounded-lg bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Icon name="Check" size={14} /> Acknowledge & Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Click outside to close AI panel */}
+          {showAIPanel && (
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowAIPanel(false)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Render
+    ReactDOM.createRoot(document.getElementById('root')).render(<SynapsePrescribeAI />);
+  </script>
+</body>
+</html>
